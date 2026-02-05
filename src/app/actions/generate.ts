@@ -7,8 +7,206 @@ import { Database, Json } from '@/types/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Server Action: generateProductImage
- * Handle product image generation from user upload to Fal.ai processing and saving results.
+ * Server Action: startGeneration
+ * Uploads image and initiates async generation (Vercel-compatible, returns quickly)
+ */
+export async function startGeneration(formData: FormData) {
+  try {
+    const file = formData.get('image') as File;
+    const backgroundPrompt = formData.get('backgroundPrompt') as string;
+    const selectedModel = formData.get('model') as string || 'gpt-image-1.5/edit';
+    
+    if (!file || !backgroundPrompt) {
+      throw new Error('Kuva tai prompt puuttuu.');
+    }
+
+    const supabase: SupabaseClient<Database> = createAdminClient();
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${uuidv4()}.${fileExt}`;
+    const filePath = fileName;
+
+    // 1. Upload original image to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('uploads')
+      .upload(filePath, file, {
+        contentType: file.type,
+        upsert: false
+      });
+
+    if (uploadError) {
+      throw new Error(`Kuvan lataus epäonnistui: ${uploadError.message}`);
+    }
+
+    const { data: { publicUrl: originalImageUrl } } = supabase.storage
+      .from('uploads')
+      .getPublicUrl(filePath);
+
+    // 2. Create database entry with 'pending' status
+    const insertData: Database['public']['Tables']['generated_images']['Insert'] = {
+      original_image_url: originalImageUrl,
+      status: 'pending',
+      prompt_settings: {
+        model: selectedModel,
+        prompt: backgroundPrompt,
+      } as Json,
+    };
+
+    const { data: imageData, error: dbError } = await (supabase as any)
+      .from('generated_images')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (dbError) {
+      throw new Error(`Tietokantamerkinnän luonti epäonnistui: ${dbError.message}`);
+    }
+
+    // 3. Start async generation (don't wait for result)
+    processGenerationAsync(imageData.id, originalImageUrl, backgroundPrompt, selectedModel).catch(err => {
+      console.error('Background generation error:', err);
+    });
+
+    return {
+      success: true,
+      generationId: imageData.id,
+    };
+
+  } catch (error) {
+    console.error('Start generation error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Jotain meni vikaan.'
+    };
+  }
+}
+
+/**
+ * Background process: Handle Fal.ai generation (runs async, not blocking Server Action)
+ */
+async function processGenerationAsync(
+  generationId: string, 
+  imageUrl: string, 
+  prompt: string, 
+  selectedModel: string
+) {
+  const supabase: SupabaseClient<Database> = createAdminClient();
+
+  try {
+    // Update status to processing
+    await (supabase as any)
+      .from('generated_images')
+      .update({ status: 'processing', updated_at: new Date().toISOString() })
+      .eq('id', generationId);
+
+    let input: any = { prompt };
+
+    // Model-specific settings
+    if (selectedModel === 'gpt-image-1.5/edit') {
+      input.image_urls = [imageUrl];
+      input.quality = 'high';
+      input.input_fidelity = 'high';
+    } else if (selectedModel === 'gemini-25-flash-image/edit') {
+      input.image_urls = [imageUrl];
+    } else {
+      input.image_url = imageUrl;
+    }
+
+    const result = await fal.subscribe(`fal-ai/${selectedModel}`, {
+      input,
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === 'IN_PROGRESS') {
+          update.logs.map((log) => console.log(`[Fal.ai Log]: ${log.message}`));
+        }
+      },
+    });
+
+    const data = result.data as any;
+    const falImageUrl = data.images?.[0]?.url || data.image?.url;
+
+    if (!falImageUrl) {
+      throw new Error('AI ei palauttanut kuvan osoitetta.');
+    }
+
+    // Download and save to our storage
+    const response = await fetch(falImageUrl);
+    const imageBlob = await response.blob();
+    const generatedFileName = `gen-${uuidv4()}.png`;
+    const generatedFilePath = generatedFileName;
+
+    const { error: genUploadError } = await supabase.storage
+      .from('generations')
+      .upload(generatedFilePath, imageBlob, {
+        contentType: 'image/png',
+        upsert: false
+      });
+
+    if (genUploadError) {
+      throw new Error(`Generoidun kuvan tallennus epäonnistui: ${genUploadError.message}`);
+    }
+
+    const { data: { publicUrl: generatedImageUrl } } = supabase.storage
+      .from('generations')
+      .getPublicUrl(generatedFilePath);
+
+    // Update database with completed status
+    await (supabase as any)
+      .from('generated_images')
+      .update({ 
+        generated_image_url: generatedImageUrl,
+        status: 'completed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', generationId);
+
+  } catch (error) {
+    console.error('Async generation error:', error);
+    // Update database with failed status
+    await (supabase as any)
+      .from('generated_images')
+      .update({ 
+        status: 'failed',
+        error_message: error instanceof Error ? error.message : 'Tuntematon virhe',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', generationId);
+  }
+}
+
+/**
+ * Server Action: getGenerationStatus
+ * Poll generation status by ID
+ */
+export async function getGenerationStatus(generationId: string) {
+  try {
+    const supabase: SupabaseClient<Database> = createAdminClient();
+    
+    const { data, error } = await (supabase as any)
+      .from('generated_images')
+      .select('*')
+      .eq('id', generationId)
+      .single();
+
+    if (error) {
+      throw new Error(`Status-haku epäonnistui: ${error.message}`);
+    }
+
+    return {
+      success: true,
+      data,
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Jotain meni vikaan.'
+    };
+  }
+}
+
+/**
+ * Legacy function for backwards compatibility
+ * @deprecated Use startGeneration + getGenerationStatus instead
  */
 export async function generateProductImage(formData: FormData) {
   try {
@@ -52,7 +250,7 @@ export async function generateProductImage(formData: FormData) {
     // Mallikohtaiset asetukset
     if (selectedModel === 'gpt-image-1.5/edit') {
       input.image_urls = [originalImageUrl];
-      input.quality = 'medium';
+      input.quality = 'high'; // Vaihdettu medium -> high paremman laadun saavuttamiseksi
       input.input_fidelity = 'high';
     } else if (selectedModel === 'gemini-25-flash-image/edit') {
       input.image_urls = [originalImageUrl];

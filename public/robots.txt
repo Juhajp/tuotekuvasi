@@ -1,0 +1,12 @@
+# Robots.txt - tuotekuvasi.fi
+
+# Allow public pages
+User-agent: *
+Allow: /
+Allow: /demo
+
+# Block all client-specific pages from search engines
+Disallow: /client/
+
+# Sitemap (optional, add when you have one)
+# Sitemap: https://tuotekuvasi.fi/sitemap.xml

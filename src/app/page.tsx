@@ -1,393 +1,147 @@
-'use client';
-
-import React, { useState, useCallback, useEffect } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Upload, ImageIcon, Loader2, Sparkles, RefreshCcw } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { startGeneration, getGenerationStatus } from './actions/generate';
-import { Separator } from '@/components/ui/separator';
+import { Sparkles, Building2, TestTube } from 'lucide-react';
 
-const GARMENT_TYPES = [
-  { id: 't-shirt', label: 'T-paita', bodyPart: 'torso', promptHints: 'Ensure the neckline shape, sleeve length, and hem length match exactly. Pay attention to any graphics or text on the shirt.' },
-  { id: 'shirt', label: 'Paita', bodyPart: 'torso', promptHints: 'Ensure collar shape, button placket alignment, cuff details, and pocket positioning match the original exactly.' },
-  { id: 'blouse', label: 'Pusero', bodyPart: 'torso', promptHints: 'Pay special attention to the neckline style, sleeve design, and any ruffles or decorative elements.' },
-  { id: 'sweater', label: 'Neule / Villapaita', bodyPart: 'torso', promptHints: 'Preserve the knit pattern texture, ribbing details at cuffs and hem, and the exact neckline style.' },
-  { id: 'hoodie', label: 'Huppari', bodyPart: 'torso', promptHints: 'Ensure the hood drapes naturally, drawstrings are visible, and any front pocket or zipper details are accurate.' },
-  { id: 'jacket', label: 'Takki', bodyPart: 'torso', promptHints: 'Match the collar type, zipper/button closure, pocket placement, and overall length precisely.' },
-  { id: 'coat', label: 'Pitkä takki / Turkki', bodyPart: 'torso', promptHints: 'Preserve the coat length, lapel style, button arrangement, and any belt or tie details accurately.' },
-  { id: 'dress', label: 'Mekko', bodyPart: 'full', promptHints: 'Pay special attention to the neckline depth and style, waistline position, sleeve type, and hem length. Preserve any patterns or decorative elements.' },
-  { id: 'skirt', label: 'Hame', bodyPart: 'lower', promptHints: 'Ensure the waistline sits correctly, hem length is accurate, and any pleats or patterns are preserved.' },
-  { id: 'pants', label: 'Housut', bodyPart: 'lower', promptHints: 'Match the fit (slim, regular, wide), leg length, and any pockets or details at the waist and ankles.' },
-  { id: 'jeans', label: 'Farkut', bodyPart: 'lower', promptHints: 'Preserve denim texture, stitching details, distressing or fading patterns, and pocket styling exactly.' },
-  { id: 'shorts', label: 'Shortsit', bodyPart: 'lower', promptHints: 'Ensure the leg length and fit match exactly, along with any pockets or hem details.' },
-  { id: 'beanie', label: 'Pipo', bodyPart: 'head', promptHints: 'Match the knit texture, fit on the head, and any fold or cuff details.' },
-  { id: 'hat', label: 'Hattu', bodyPart: 'head', promptHints: 'Preserve the brim width, crown height, and any decorative bands or logos.' },
-  { id: 'scarf', label: 'Huivi / Kaulaliina', bodyPart: 'neck', promptHints: 'Ensure the draping style, pattern, fringe details, and fabric texture are accurate.' },
-  { id: 'socks', label: 'Sukat', bodyPart: 'feet', promptHints: 'Match the height (ankle, crew, knee), ribbing pattern, and any designs or logos.' },
-  { id: 'shoes', label: 'Kengät', bodyPart: 'feet', promptHints: 'Preserve shoe type (sneakers, boots, heels), lacing details, sole design, and any logos or patterns.' },
-];
-
-const ENVIRONMENTS = [
-  { 
-    id: 'studio', 
-    label: 'Professional Studio', 
-    setting: 'The setting is a clean, professional photo studio background, light grey color. The lighting is soft, diffused daylight coming from the side.' 
-  },
-  { 
-    id: 'winter', 
-    label: 'Finnish Winter Landscape', 
-    setting: 'The setting is a beautiful Finnish winter landscape with snow-covered pine trees in the background. The lighting is natural, soft winter daylight creating a crisp, fresh atmosphere.' 
-  },
-];
-
-const MODEL_GENDERS = [
-  { 
-    id: 'female', 
-    label: 'Nainen',
-    description: 'female, approx 25 years old, scandinavian ethnicity, blonde hair, natural makeup'
-  },
-  { 
-    id: 'male', 
-    label: 'Mies',
-    description: 'male, approx 25 years old, scandinavian ethnicity, short hair, clean-shaven'
-  },
-];
-
-const MODELS = [
-  { id: 'gpt-image-1.5/edit', label: 'GPT Image 1.5 Edit' },
-  { id: 'gemini-25-flash-image/edit', label: 'Gemini 2.5 Flash Edit' },
-];
-
-export default function Home() {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [garmentType, setGarmentType] = useState<string>(GARMENT_TYPES[0].id);
-  const [modelGender, setModelGender] = useState<string>(MODEL_GENDERS[0].id);
-  const [environment, setEnvironment] = useState<string>(ENVIRONMENTS[0].id);
-  const [model, setModel] = useState<string>(MODELS[0].id);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationId, setGenerationId] = useState<string | null>(null);
-  const [result, setResult] = useState<{ original: string, generated: string } | null>(null);
-
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const selectedFile = acceptedFiles[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setPreview(URL.createObjectURL(selectedFile));
-      setResult(null);
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png'],
-    },
-    maxFiles: 1,
-    maxSize: 10 * 1024 * 1024 // 10MB
-  });
-
-  const handleGenerate = async () => {
-    if (!file) {
-      toast.error("Valitse ensin kuva.");
-      return;
-    }
-
-    setIsGenerating(true);
-    const selectedEnvironment = ENVIRONMENTS.find(e => e.id === environment);
-    const selectedGarment = GARMENT_TYPES.find(g => g.id === garmentType);
-    const selectedGender = MODEL_GENDERS.find(mg => mg.id === modelGender);
-    
-    // Rakenna täydellinen prompt vaatetyypillä ja sukupuolella
-    const basePrompt = `Visualize this ${selectedGarment?.label || 'piece of clothing'} being worn by a professional fashion model, ${selectedGender?.description || 'approx 25 years old'}, standing in a relaxed pose.`;
-    const settingPart = `SETTING:\n${selectedEnvironment?.setting || ''}`;
-    
-    // Parannettu IMPORTANT-osio konkreettisilla säännöillä
-    const importantPart = `IMPORTANT INSTRUCTIONS:
-1. Map the exact garment from the input image onto the model's body with PERFECT anatomical accuracy
-2. Preserve ALL original details: collar shape, neckline depth, sleeve length, hem length, buttons, zippers, pockets, and seams exactly as shown in the input
-3. The fabric must drape naturally following the body's curves and gravity
-4. Wrinkles and folds should appear only where the fabric naturally bends (elbows, waist, knees)
-5. Maintain the exact texture, pattern, and material appearance from the original garment
-6. The garment should fit the model's body size appropriately - not too tight, not too loose
-${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHints}` : ''}`;
-    
-    const fullPrompt = `${basePrompt}\n\n${settingPart}\n\n${importantPart}`;
-    
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('backgroundPrompt', fullPrompt);
-    formData.append('model', model);
-
-    try {
-      const response = await startGeneration(formData);
-      
-      if (response.success && response.generationId) {
-        setGenerationId(response.generationId);
-        toast.success("Generointi aloitettu! Odota hetki...");
-      } else {
-        toast.error(response.error || "Generoinnin aloitus epäonnistui.");
-        setIsGenerating(false);
-      }
-    } catch (error) {
-      toast.error("Odottamaton virhe tapahtui.");
-      console.error(error);
-      setIsGenerating(false);
-    }
-  };
-
-  // Poll generation status
-  useEffect(() => {
-    if (!generationId || !isGenerating) return;
-
-    const pollInterval = setInterval(async () => {
-      const statusResponse = await getGenerationStatus(generationId);
-      
-      if (statusResponse.success && statusResponse.data) {
-        const { status, generated_image_url, original_image_url, error_message } = statusResponse.data;
-        
-        if (status === 'completed' && generated_image_url) {
-          setResult({
-            original: original_image_url,
-            generated: generated_image_url
-          });
-          toast.success("Kuva generoitu onnistuneesti!");
-          setIsGenerating(false);
-          setGenerationId(null);
-          clearInterval(pollInterval);
-        } else if (status === 'failed') {
-          toast.error(`Generointi epäonnistui: ${error_message || 'Tuntematon virhe'}`);
-          setIsGenerating(false);
-          setGenerationId(null);
-          clearInterval(pollInterval);
-        }
-        // If status is 'pending' or 'processing', keep polling
-      }
-    }, 3000); // Poll every 3 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [generationId, isGenerating]);
-
-  const reset = () => {
-    setFile(null);
-    setPreview(null);
-    setResult(null);
-    setGenerationId(null);
-    setIsGenerating(false);
-  };
-
+export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+        <div className="text-center space-y-4 mb-16 pt-12">
+          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900">
             tuotekuvasi.fi
           </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Luo ammattitasoisia vaatekuvia mallin päällä sekunneissa tekoälyn avulla. 
-            Lataa kuva vaatteesta, valitse ympäristö ja anna AI:n hoitaa loput.
+          <p className="text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto">
+            Luo ammattitasoisia vaatekuvia mallin päällä sekunneissa tekoälyn avulla
           </p>
+          <div className="flex items-center justify-center gap-2 text-slate-500">
+            <Sparkles className="w-5 h-5" />
+            <span className="text-sm">Powered by Fal.ai & Supabase</span>
+          </div>
         </div>
 
-        {!result ? (
-          <Card className="border-2 shadow-xl bg-white overflow-hidden">
-            <CardHeader className="bg-slate-900 text-white">
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5" />
-                Uusi generointi
-              </CardTitle>
-              <CardDescription className="text-slate-300">
-                Lataa kuva vaatteesta (paita, takki, mekko jne.) tasaisella taustalla
+        {/* Cards */}
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {/* Demo Card */}
+          <Card className="border-2 shadow-xl hover:shadow-2xl transition-all hover:scale-105 duration-300">
+            <CardHeader className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+              <div className="flex items-center gap-2">
+                <TestTube className="w-6 h-6" />
+                <CardTitle className="text-2xl">Julkinen Demo</CardTitle>
+              </div>
+              <CardDescription className="text-blue-100">
+                Kokeile palvelua ilmaiseksi ilman rekisteröitymistä
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              {/* Dropzone */}
-              <div 
-                {...getRootProps()} 
-                className={`
-                  relative border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer
-                  flex flex-col items-center justify-center min-h-[300px]
-                  ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400 bg-slate-50'}
-                  ${preview ? 'p-2' : 'p-8'}
-                `}
+            <CardContent className="p-6 space-y-4">
+              <ul className="space-y-2 text-slate-600">
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">✓</span>
+                  <span>Täysi valikoima vaatteita ja ympäristöjä</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">✓</span>
+                  <span>Useita AI-malleja valittavana</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">✓</span>
+                  <span>Ei vaadi kirjautumista</span>
+                </li>
+              </ul>
+              <Button 
+                asChild 
+                size="lg" 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-lg h-12"
               >
-                <input {...getInputProps()} />
-                
-                {preview ? (
-                  <div className="relative w-full h-full min-h-[300px] flex items-center justify-center">
-                    <img 
-                      src={preview} 
-                      alt="Preview" 
-                      className="max-h-[400px] rounded-lg shadow-md object-contain"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                      <p className="text-white font-medium flex items-center gap-2">
-                        <Upload className="w-5 h-5" /> Vaihda kuva
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center space-y-4">
-                    <div className="bg-white p-4 rounded-full shadow-sm inline-block">
-                      <Upload className="w-8 h-8 text-slate-400" />
-                    </div>
-                    <div>
-                      <p className="text-lg font-medium text-slate-700">
-                        Pudota kuva tähän tai klikkaa valitaksesi
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        PNG, JPG tai WEBP (max. 10MB)
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <Link href="/demo">
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Kokeile demoa
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Client Card */}
+          <Card className="border-2 shadow-xl hover:shadow-2xl transition-all hover:scale-105 duration-300 border-slate-300">
+            <CardHeader className="bg-gradient-to-br from-slate-700 to-slate-800 text-white">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-6 h-6" />
+                <CardTitle className="text-2xl">Yritysversio</CardTitle>
               </div>
-
-              {/* Settings */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">Vaatetyyppi</label>
-                    <Select value={garmentType} onValueChange={setGarmentType}>
-                      <SelectTrigger className="w-full h-12">
-                        <SelectValue placeholder="Valitse vaate" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {GARMENT_TYPES.map((g) => (
-                          <SelectItem key={g.id} value={g.id}>
-                            {g.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">Mallin sukupuoli</label>
-                    <Select value={modelGender} onValueChange={setModelGender}>
-                      <SelectTrigger className="w-full h-12">
-                        <SelectValue placeholder="Valitse sukupuoli" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MODEL_GENDERS.map((mg) => (
-                          <SelectItem key={mg.id} value={mg.id}>
-                            {mg.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">Ympäristö</label>
-                    <Select value={environment} onValueChange={setEnvironment}>
-                      <SelectTrigger className="w-full h-12">
-                        <SelectValue placeholder="Valitse ympäristö" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ENVIRONMENTS.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">AI-malli</label>
-                    <Select value={model} onValueChange={setModel}>
-                      <SelectTrigger className="w-full h-12">
-                        <SelectValue placeholder="Valitse malli" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MODELS.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <Button 
-                  size="lg" 
-                  className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
-                  onClick={handleGenerate}
-                  disabled={!file || isGenerating}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Generoidaan...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-5 w-5" />
-                      Luo uusi kuva
-                    </>
-                  )}
-                </Button>
+              <CardDescription className="text-slate-300">
+                Räätälöity ratkaisu yrityksellesi
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <ul className="space-y-2 text-slate-600">
+                <li className="flex items-start gap-2">
+                  <span className="text-slate-700 font-bold">✓</span>
+                  <span>Omat valinnat ja prompt-mallit</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-slate-700 font-bold">✓</span>
+                  <span>Brändätty käyttöliittymä</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-slate-700 font-bold">✓</span>
+                  <span>Prioriteettituki</span>
+                </li>
+              </ul>
+              <div className="pt-2 space-y-3">
+                <p className="text-sm text-slate-500">
+                  Jos olet pilottiasiakkaamme, käytä saamaasi URL-osoitetta.
+                </p>
+                <p className="text-sm text-slate-600 font-medium">
+                  Esimerkki: <code className="bg-slate-100 px-2 py-1 rounded text-xs">/client/yritys</code>
+                </p>
               </div>
             </CardContent>
           </Card>
-        ) : (
-          /* Result View */
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="overflow-hidden border-2">
-                <CardHeader className="bg-slate-100 py-3">
-                  <CardTitle className="text-sm font-medium text-slate-500 uppercase">Alkuperäinen</CardTitle>
-                </CardHeader>
-                <div className="aspect-square bg-white flex items-center justify-center p-4">
-                  <img src={result.original} alt="Alkuperäinen" className="max-w-full max-h-full object-contain" />
-                </div>
-              </Card>
+        </div>
 
-              <Card className="overflow-hidden border-2 border-blue-500 shadow-2xl shadow-blue-100">
-                <CardHeader className="bg-blue-500 py-3">
-                  <CardTitle className="text-sm font-medium text-white uppercase">AI-generoitu</CardTitle>
-                </CardHeader>
-                <div className="aspect-square bg-white flex items-center justify-center p-4">
-                  <img src={result.generated} alt="Generoitu" className="max-w-full max-h-full object-contain" />
-                </div>
-              </Card>
+        {/* Features Section */}
+        <div className="mt-20 max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-center text-slate-900 mb-8">
+            Miten se toimii?
+          </h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="text-center space-y-3">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                <span className="text-2xl font-bold text-blue-600">1</span>
+              </div>
+              <h3 className="font-semibold text-lg text-slate-800">Lataa kuva</h3>
+              <p className="text-slate-600 text-sm">
+                Valitse kuva vaatteesta tasaisella taustalla
+              </p>
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                variant="outline" 
-                size="lg" 
-                onClick={reset}
-                className="h-12 px-8"
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" /> Aloita alusta
-              </Button>
-              <Button 
-                size="lg" 
-                className="h-12 px-8 bg-blue-600 hover:bg-blue-700"
-                asChild
-              >
-                <a href={result.generated} download="tuotekuva.png">
-                  Lataa kuva
-                </a>
-              </Button>
+            <div className="text-center space-y-3">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                <span className="text-2xl font-bold text-blue-600">2</span>
+              </div>
+              <h3 className="font-semibold text-lg text-slate-800">Valitse asetukset</h3>
+              <p className="text-slate-600 text-sm">
+                Vaatetyyppi, malli, ympäristö ja AI-malli
+              </p>
+            </div>
+            <div className="text-center space-y-3">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                <span className="text-2xl font-bold text-blue-600">3</span>
+              </div>
+              <h3 className="font-semibold text-lg text-slate-800">Lataa tulos</h3>
+              <p className="text-slate-600 text-sm">
+                AI luo ammattilaatukuvan mallin päällä
+              </p>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Footer */}
-        <Separator className="my-12" />
-        <footer className="text-center text-slate-400 text-sm pb-12">
-          &copy; 2026 tuotekuvasi.fi - Powered by Fal.ai & Supabase
+        <footer className="text-center text-slate-400 text-sm mt-20 pb-8">
+          <p>&copy; 2026 tuotekuvasi.fi</p>
+          <p className="mt-2">
+            Kiinnostaako yritysversio? Ota yhteyttä: <a href="mailto:info@tuotekuvasi.fi" className="text-blue-500 hover:underline">info@tuotekuvasi.fi</a>
+          </p>
         </footer>
       </div>
     </main>

@@ -15,7 +15,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "tuotekuvasi.fi - AI-tuotekuvageneraattori",
-  description: "Luo upeita tuotekuvia tekoälyllä sekunneissa.",
+  description: "Luo ammattitasoisia vaatekuvia mallin päällä sekunneissa tekoälyn avulla. Kokeile ilmaista demoa!",
+  keywords: "tuotekuvat, AI, kuvageneraattori, vaatekuvat, muotikuvat, verkkokauppa",
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    title: "tuotekuvasi.fi - AI-tuotekuvageneraattori",
+    description: "Luo ammattitasoisia vaatekuvia mallin päällä sekunneissa",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

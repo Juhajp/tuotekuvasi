@@ -15,6 +15,7 @@ export async function startGeneration(formData: FormData) {
     const file = formData.get('image') as File;
     const backgroundPrompt = formData.get('backgroundPrompt') as string;
     const selectedModel = formData.get('model') as string || 'gpt-image-1.5/edit';
+    const clientId = formData.get('clientId') as string | null; // Optional client ID for multi-tenant tracking
     
     if (!file || !backgroundPrompt) {
       throw new Error('Kuva tai prompt puuttuu.');
@@ -45,6 +46,7 @@ export async function startGeneration(formData: FormData) {
     const insertData: Database['public']['Tables']['generated_images']['Insert'] = {
       original_image_url: originalImageUrl,
       status: 'pending',
+      client_id: clientId, // Track which client generated this image
       prompt_settings: {
         model: selectedModel,
         prompt: backgroundPrompt,
@@ -99,19 +101,27 @@ async function processGenerationAsync(
       .eq('id', generationId);
 
     let input: any = { prompt };
+    let falModel = selectedModel;
 
     // Model-specific settings
     if (selectedModel === 'gpt-image-1.5/edit') {
       input.image_urls = [imageUrl];
       input.quality = 'high';
       input.input_fidelity = 'high';
+      falModel = 'gpt-image-1.5/edit';
+    } else if (selectedModel === 'gpt-image-1.5/edit-medium') {
+      input.image_urls = [imageUrl];
+      input.quality = 'medium';
+      input.input_fidelity = 'high';
+      falModel = 'gpt-image-1.5/edit'; // Sama malli, eri quality
     } else if (selectedModel === 'gemini-25-flash-image/edit') {
       input.image_urls = [imageUrl];
+      falModel = 'gemini-25-flash-image/edit';
     } else {
       input.image_url = imageUrl;
     }
 
-    const result = await fal.subscribe(`fal-ai/${selectedModel}`, {
+    const result = await fal.subscribe(`fal-ai/${falModel}`, {
       input,
       logs: true,
       onQueueUpdate: (update) => {
@@ -246,20 +256,28 @@ export async function generateProductImage(formData: FormData) {
     let input: any = {
       prompt: backgroundPrompt,
     };
+    let falModel = selectedModel;
 
     // Mallikohtaiset asetukset
     if (selectedModel === 'gpt-image-1.5/edit') {
       input.image_urls = [originalImageUrl];
       input.quality = 'high'; // Vaihdettu medium -> high paremman laadun saavuttamiseksi
       input.input_fidelity = 'high';
+      falModel = 'gpt-image-1.5/edit';
+    } else if (selectedModel === 'gpt-image-1.5/edit-medium') {
+      input.image_urls = [originalImageUrl];
+      input.quality = 'medium';
+      input.input_fidelity = 'high';
+      falModel = 'gpt-image-1.5/edit'; // Sama malli, eri quality
     } else if (selectedModel === 'gemini-25-flash-image/edit') {
       input.image_urls = [originalImageUrl];
+      falModel = 'gemini-25-flash-image/edit';
     } else {
       // Oletus: background-change malli tai muut
       input.image_url = originalImageUrl;
     }
 
-    const result = await fal.subscribe(`fal-ai/${selectedModel}`, {
+    const result = await fal.subscribe(`fal-ai/${falModel}`, {
       input,
       logs: true,
       onQueueUpdate: (update) => {

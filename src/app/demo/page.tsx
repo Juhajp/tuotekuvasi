@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { startGeneration, getGenerationStatus } from './actions/generate';
+import { startGeneration, getGenerationStatus } from '@/app/actions/generate';
 import { Separator } from '@/components/ui/separator';
 
 const GARMENT_TYPES = [

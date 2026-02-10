@@ -65,6 +65,7 @@ export interface Database {
           default_garment_type: string | null
           default_model_gender: string | null
           branding: Json
+          credits_balance: number
           is_active: boolean
           created_at: string
           updated_at: string
@@ -83,6 +84,7 @@ export interface Database {
           default_garment_type?: string | null
           default_model_gender?: string | null
           branding?: Json
+          credits_balance?: number
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -101,6 +103,7 @@ export interface Database {
           default_garment_type?: string | null
           default_model_gender?: string | null
           branding?: Json
+          credits_balance?: number
           is_active?: boolean
           created_at?: string
           updated_at?: string

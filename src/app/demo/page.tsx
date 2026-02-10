@@ -230,27 +230,27 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#003049' }}>
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+          <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
             tuotekuvasi.fi
           </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+          <p className="text-lg max-w-2xl mx-auto text-white/80">
             Luo ammattitasoisia vaatekuvia mallin päällä sekunneissa tekoälyn avulla. 
             Lataa kuva vaatteesta, valitse ympäristö ja anna AI:n hoitaa loput.
           </p>
         </div>
 
         {!result ? (
-          <Card className="border-2 shadow-xl bg-white overflow-hidden">
-            <CardHeader className="bg-slate-900 text-white">
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5" />
+          <Card className="border border-white/20 shadow-2xl bg-white/95 backdrop-blur overflow-hidden rounded-2xl">
+            <CardHeader className="border-b border-white/10 bg-transparent py-6 px-6">
+              <CardTitle className="flex items-center gap-2 text-[#003049] font-semibold">
+                <ImageIcon className="w-5 h-5 text-[#003049]" />
                 Uusi generointi
               </CardTitle>
-              <CardDescription className="text-slate-300">
+              <CardDescription className="text-slate-600 mt-1">
                 Lataa kuva vaatteesta (paita, takki, mekko jne.) tasaisella taustalla
               </CardDescription>
             </CardHeader>
@@ -259,9 +259,9 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
               <div 
                 {...getRootProps()} 
                 className={`
-                  relative border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer
-                  flex flex-col items-center justify-center min-h-[300px]
-                  ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400 bg-slate-50'}
+                  relative border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer min-h-[300px]
+                  flex flex-col items-center justify-center
+                  ${isDragActive ? 'border-[#fcbf49] bg-[#fcbf49]/10' : 'border-slate-300 hover:border-slate-400 bg-slate-50'}
                   ${preview ? 'p-2' : 'p-8'}
                 `}
               >
@@ -274,23 +274,36 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
                       alt="Preview" 
                       className="max-h-[400px] rounded-lg shadow-md object-contain"
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                      <p className="text-white font-medium flex items-center gap-2">
-                        <Upload className="w-5 h-5" /> Vaihda kuva
-                      </p>
-                    </div>
+                    {isGenerating && (
+                      <div className="absolute inset-0 bg-[#003049]/80 rounded-lg flex flex-col items-center justify-center gap-3 backdrop-blur-sm">
+                        <Loader2 className="w-12 h-12 text-[#fcbf49] animate-spin" />
+                        <p className="text-white font-medium">Generoidaan kuvaa...</p>
+                        <div className="flex gap-1">
+                          <span className="w-2 h-2 rounded-full bg-[#fcbf49] animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-2 h-2 rounded-full bg-[#fcbf49] animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-2 h-2 rounded-full bg-[#fcbf49] animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                      </div>
+                    )}
+                    {!isGenerating && (
+                      <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                        <p className="text-white font-medium flex items-center gap-2">
+                          <Upload className="w-5 h-5" /> Vaihda kuva
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center space-y-4">
-                    <div className="bg-white p-4 rounded-full shadow-sm inline-block">
-                      <Upload className="w-8 h-8 text-slate-400" />
+                    <div className="bg-white/80 p-4 rounded-full shadow-sm inline-block">
+                      <Upload className="w-8 h-8 text-[#003049]" />
                     </div>
                     <div>
                       <p className="text-lg font-medium text-slate-700">
                         Pudota kuva tähän tai klikkaa valitaksesi
                       </p>
                       <p className="text-sm text-slate-500">
-                        PNG, JPG tai WEBP (max. 10MB)
+                        PNG tai JPG (max. 10MB)
                       </p>
                     </div>
                   </div>
@@ -369,7 +382,7 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
                 
                 <Button 
                   size="lg" 
-                  className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
+                  className="w-full h-12 text-lg font-bold bg-[#fcbf49] hover:bg-[#f4a726] text-[#003049] shadow-lg shadow-[#fcbf49]/30 transition-all rounded-xl"
                   onClick={handleGenerate}
                   disabled={!file || isGenerating}
                 >
@@ -392,21 +405,25 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
           /* Result View */
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="overflow-hidden border-2">
-                <CardHeader className="bg-slate-100 py-3">
-                  <CardTitle className="text-sm font-medium text-slate-500 uppercase">Alkuperäinen</CardTitle>
+              <Card className="overflow-hidden border border-white/20 bg-white/95 rounded-2xl shadow-xl">
+                <CardHeader className="border-b border-slate-200 bg-slate-50/80 py-4 px-5">
+                  <CardTitle className="text-sm font-semibold text-[#003049] uppercase tracking-widest">
+                    Alkuperäinen
+                  </CardTitle>
                 </CardHeader>
                 <div className="aspect-square bg-white flex items-center justify-center p-4">
-                  <img src={result.original} alt="Alkuperäinen" className="max-w-full max-h-full object-contain" />
+                  <img src={result.original} alt="Alkuperäinen" className="max-w-full max-h-full object-contain rounded-lg" />
                 </div>
               </Card>
 
-              <Card className="overflow-hidden border-2 border-blue-500 shadow-2xl shadow-blue-100">
-                <CardHeader className="bg-blue-500 py-3">
-                  <CardTitle className="text-sm font-medium text-white uppercase">AI-generoitu</CardTitle>
+              <Card className="overflow-hidden border-2 border-[#fcbf49]/60 bg-white/95 rounded-2xl shadow-2xl shadow-[#fcbf49]/10">
+                <CardHeader className="bg-[#fcbf49]/25 py-4 px-5 border-b border-[#fcbf49]/40">
+                  <CardTitle className="text-sm font-semibold text-[#003049] uppercase tracking-widest">
+                    AI-generoitu
+                  </CardTitle>
                 </CardHeader>
                 <div className="aspect-square bg-white flex items-center justify-center p-4">
-                  <img src={result.generated} alt="Generoitu" className="max-w-full max-h-full object-contain" />
+                  <img src={result.generated} alt="Generoitu" className="max-w-full max-h-full object-contain rounded-lg" />
                 </div>
               </Card>
             </div>
@@ -416,13 +433,13 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
                 variant="outline" 
                 size="lg" 
                 onClick={reset}
-                className="h-12 px-8"
+                className="h-12 px-8 bg-transparent border-2 border-white text-white hover:bg-white/15 rounded-xl font-semibold shadow-lg min-w-[180px]"
               >
-                <RefreshCcw className="mr-2 h-4 w-4" /> Aloita alusta
+                <RefreshCcw className="mr-2 h-5 w-5" /> Aloita alusta
               </Button>
               <Button 
                 size="lg" 
-                className="h-12 px-8 bg-blue-600 hover:bg-blue-700"
+                className="h-12 px-8 bg-[#fcbf49] hover:bg-[#f4a726] text-[#003049] font-bold rounded-xl shadow-lg shadow-[#fcbf49]/30 min-w-[180px]"
                 onClick={handleDownload}
               >
                 Lataa kuva
@@ -432,9 +449,9 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
         )}
 
         {/* Footer */}
-        <Separator className="my-12" />
-        <footer className="text-center text-slate-400 text-sm pb-12">
-          &copy; 2026 tuotekuvasi.fi - Powered by Fal.ai & Supabase
+        <Separator className="my-12 border-white/10" />
+        <footer className="text-center text-white/60 text-sm pb-12">
+          &copy; 2026 tuotekuvasi.fi
         </footer>
       </div>
     </main>

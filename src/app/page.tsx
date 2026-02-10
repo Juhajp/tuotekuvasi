@@ -52,7 +52,7 @@ export default function LandingPage() {
               <Button 
                 asChild 
                 size="lg" 
-                className="w-full bg-blue-600 hover:bg-blue-700 text-lg h-12"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-lg h-12 font-semibold rounded-xl shadow-lg shadow-blue-500/30"
               >
                 <Link href="/demo">
                   <Sparkles className="mr-2 h-5 w-5" />

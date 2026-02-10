@@ -22,6 +22,41 @@ export async function startGeneration(formData: FormData) {
     }
 
     const supabase: SupabaseClient<Database> = createAdminClient();
+
+    // Credit check: if clientId provided, require and consume 1 credit
+    if (clientId) {
+      const { data: clientRow, error: fetchError } = await (supabase as any)
+        .from('clients')
+        .select('credits_balance')
+        .eq('id', clientId)
+        .single();
+
+      if (fetchError || !clientRow) {
+        return { success: false, error: 'Asiakastietoja ei löydy.' };
+      }
+
+      const balance = Number(clientRow.credits_balance) ?? 0;
+      if (balance < 1) {
+        return {
+          success: false,
+          error: 'Ei krediittejä jäljellä. Ota yhteyttä palvelun ylläpitäjään.',
+        };
+      }
+
+      const { error: decrementError } = await (supabase as any)
+        .from('clients')
+        .update({ credits_balance: balance - 1 })
+        .eq('id', clientId);
+
+      if (decrementError) {
+        console.error('Credit decrement error:', decrementError);
+        return {
+          success: false,
+          error: 'Krediittien vähennys epäonnistui.',
+        };
+      }
+    }
+
     const fileExt = file.name.split('.').pop();
     const fileName = `${uuidv4()}.${fileExt}`;
     const filePath = fileName;

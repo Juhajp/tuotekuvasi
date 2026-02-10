@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { startGeneration, getGenerationStatus } from '@/app/actions/generate';
 import { Separator } from '@/components/ui/separator';
+import { BackgroundShapes } from '@/components/background-shapes';
 
 const GARMENT_TYPES = [
   { id: 't-shirt', label: 'T-paita', bodyPart: 'torso', promptHints: 'Ensure the neckline shape, sleeve length, and hem length match exactly. Pay attention to any graphics or text on the shirt.' },
@@ -230,8 +231,9 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
   };
 
   return (
-    <main className="min-h-screen py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#003049' }}>
-      <div className="max-w-4xl mx-auto space-y-8">
+    <main className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative">
+      <BackgroundShapes />
+      <div className="max-w-4xl mx-auto space-y-8 relative z-0">
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
@@ -382,7 +384,7 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
                 
                 <Button 
                   size="lg" 
-                  className="w-full h-12 text-lg font-bold bg-[#fcbf49] hover:bg-[#f4a726] text-[#003049] shadow-lg shadow-[#fcbf49]/30 transition-all rounded-xl"
+                  className="w-full h-12 text-lg font-bold btn-generate text-white transition-all rounded-xl border-0"
                   onClick={handleGenerate}
                   disabled={!file || isGenerating}
                 >
@@ -406,7 +408,7 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="overflow-hidden border border-white/20 bg-white/95 rounded-2xl shadow-xl">
-                <CardHeader className="border-b border-slate-200 bg-slate-50/80 py-4 px-5">
+                <CardHeader className="border-b border-slate-200 bg-transparent py-4 px-5">
                   <CardTitle className="text-sm font-semibold text-[#003049] uppercase tracking-widest">
                     Alkuperäinen
                   </CardTitle>
@@ -416,8 +418,8 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
                 </div>
               </Card>
 
-              <Card className="overflow-hidden border-2 border-[#fcbf49]/60 bg-white/95 rounded-2xl shadow-2xl shadow-[#fcbf49]/10">
-                <CardHeader className="bg-[#fcbf49]/25 py-4 px-5 border-b border-[#fcbf49]/40">
+              <Card className="overflow-hidden border-0 bg-white/95 rounded-2xl shadow-2xl">
+                <CardHeader className="bg-transparent py-4 px-5 border-b border-slate-200">
                   <CardTitle className="text-sm font-semibold text-[#003049] uppercase tracking-widest">
                     AI-generoitu
                   </CardTitle>
@@ -439,7 +441,7 @@ ${selectedGarment?.promptHints ? `7. SPECIFIC DETAIL: ${selectedGarment.promptHi
               </Button>
               <Button 
                 size="lg" 
-                className="h-12 px-8 bg-[#fcbf49] hover:bg-[#f4a726] text-[#003049] font-bold rounded-xl shadow-lg shadow-[#fcbf49]/30 min-w-[180px]"
+                className="h-12 px-8 btn-generate text-white font-bold rounded-xl min-w-[180px] border-0"
                 onClick={handleDownload}
               >
                 Lataa kuva

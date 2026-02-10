@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { startGeneration, getGenerationStatus } from '@/app/actions/generate';
 import { Separator } from '@/components/ui/separator';
+import { BackgroundShapes } from '@/components/background-shapes';
 import { 
   loadClientConfig, 
   getEnvironments, 
@@ -257,16 +258,18 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
 
   if (isLoadingConfig) {
     return (
-      <main className="min-h-screen py-12 px-4 flex items-center justify-center" style={{ backgroundColor: '#003049' }}>
-        <Loader2 className="w-10 h-10 animate-spin text-[#fcbf49]" />
+      <main className="min-h-screen py-12 px-4 flex items-center justify-center relative">
+        <BackgroundShapes />
+        <Loader2 className="w-10 h-10 animate-spin text-[#fcbf49] relative z-0" />
       </main>
     );
   }
 
   if (!clientConfig) {
     return (
-      <main className="min-h-screen py-12 px-4 flex items-center justify-center" style={{ backgroundColor: '#003049' }}>
-        <Card className="bg-white/95 border border-white/20 rounded-2xl shadow-xl">
+      <main className="min-h-screen py-12 px-4 flex items-center justify-center relative">
+        <BackgroundShapes />
+        <Card className="bg-white/95 border border-white/20 rounded-2xl shadow-xl relative z-0">
           <CardHeader>
             <CardTitle className="text-[#003049]">Asiakasta ei löytynyt</CardTitle>
             <CardDescription className="text-slate-600">Tarkista URL ja yritä uudelleen.</CardDescription>
@@ -277,11 +280,12 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
   }
 
   return (
-    <main className="min-h-screen py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#003049' }}>
-      <div className="max-w-4xl mx-auto space-y-8">
+    <main className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative">
+      <BackgroundShapes />
+      <div className="max-w-4xl mx-auto space-y-8 relative z-0">
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+          <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
             {clientConfig.name}
           </h1>
           <p className="text-lg max-w-2xl mx-auto text-white/80">
@@ -447,7 +451,7 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
                 )}
                 <Button 
                   size="lg" 
-                  className="w-full h-12 text-lg font-bold bg-[#fcbf49] hover:bg-[#f4a726] text-[#003049] shadow-lg shadow-[#fcbf49]/30 transition-all rounded-xl"
+                  className="w-full h-12 text-lg font-bold btn-generate text-white transition-all rounded-xl border-0"
                   onClick={handleGenerate}
                   disabled={!file || isGenerating || (typeof (clientConfig as { credits_balance?: number }).credits_balance === 'number' && (clientConfig as { credits_balance: number }).credits_balance < 1)}
                 >
@@ -471,7 +475,7 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="overflow-hidden border border-white/20 bg-white/95 rounded-2xl shadow-xl">
-                <CardHeader className="border-b border-slate-200 bg-slate-50/80 py-4 px-5">
+                <CardHeader className="border-b border-slate-200 bg-transparent py-4 px-5">
                   <CardTitle className="text-sm font-semibold text-[#003049] uppercase tracking-widest">
                     Alkuperäinen
                   </CardTitle>
@@ -481,8 +485,8 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
                 </div>
               </Card>
 
-              <Card className="overflow-hidden border-2 border-[#fcbf49]/60 bg-white/95 rounded-2xl shadow-2xl shadow-[#fcbf49]/10">
-                <CardHeader className="bg-[#fcbf49]/25 py-4 px-5 border-b border-[#fcbf49]/40">
+              <Card className="overflow-hidden border-0 bg-white/95 rounded-2xl shadow-2xl">
+                <CardHeader className="bg-transparent py-4 px-5 border-b border-slate-200">
                   <CardTitle className="text-sm font-semibold text-[#003049] uppercase tracking-widest">
                     AI-generoitu
                   </CardTitle>
@@ -504,7 +508,7 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
               </Button>
               <Button 
                 size="lg" 
-                className="h-12 px-8 bg-[#fcbf49] hover:bg-[#f4a726] text-[#003049] font-bold rounded-xl shadow-lg shadow-[#fcbf49]/30 min-w-[180px]"
+                className="h-12 px-8 btn-generate text-white font-bold rounded-xl min-w-[180px] border-0"
                 onClick={handleDownload}
               >
                 Lataa kuva
@@ -514,7 +518,7 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
         )}
 
         {/* Footer */}
-        <Separator className="my-12 border-white/10" />
+       
         <footer className="text-center text-white/60 text-sm pb-12">
           &copy; 2026 tuotekuvasi.fi
         </footer>

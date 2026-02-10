@@ -119,6 +119,16 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Luo uusi kuva -nappi: #10c6bd + hienovarainen gradient */
+.btn-generate {
+  background: linear-gradient(135deg, #10c6bd 0%, #0eb5ad 45%, #14d9cf 100%);
+  box-shadow: 0 10px 15px -3px rgb(16 198 189 / 0.25);
+}
+.btn-generate:hover {
+  background: linear-gradient(135deg, #0eb5ad 0%, #0da39c 45%, #10c6bd 100%);
+  box-shadow: 0 10px 15px -3px rgb(16 198 189 / 0.35);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

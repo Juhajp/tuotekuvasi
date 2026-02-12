@@ -22,6 +22,128 @@ import {
   type DropdownOption
 } from '@/lib/client-config';
 
+// Rautio-kohtaiset asetukset (vain clientSlug === 'rautio')
+type RautioItemCategory = 'tool' | 'workwear';
+
+type RautioItem = {
+  id: string;
+  label: string;
+  category: RautioItemCategory;
+  /** Englanninkielinen termi promptia varten (työkalut) */
+  promptLabel?: string;
+};
+
+const RAUTIO_ITEMS: RautioItem[] = [
+  // Työkalut
+  {
+    id: 'cordless-drill',
+    label: 'Akkuporakone',
+    category: 'tool',
+    promptLabel: 'cordless drill, short drill bit',
+  },
+  {
+    id: 'angle-grinder',
+    label: 'Kulmahiomakone',
+    category: 'tool',
+    promptLabel: 'angle grinder',
+  },
+  {
+    id: 'circular-saw',
+    label: 'Käsisirkkeli',
+    category: 'tool',
+    promptLabel: 'circular saw',
+  },
+  {
+    id: 'nut-runner',
+    label: 'Mutterinväännin',
+    category: 'tool',
+    promptLabel: 'nut runner',
+  },
+  // Työvaatteet
+  {
+    id: 'jacket',
+    label: 'Työtakki',
+    category: 'workwear',
+    promptLabel: 'work jacket',
+  },
+  {
+    id: 'pants',
+    label: 'Työhousut',
+    category: 'workwear',
+    promptLabel: 'work pants',
+  },
+  {
+    id: 'shoes',
+    label: 'Turvakengät',
+    category: 'workwear',
+    promptLabel: 'safety shoes (closeup photo of feet)',
+  },
+];
+
+const RAUTIO_TOOL_BASE_PROMPT =
+  'High-energy commercial lifestyle photography of a person using this specific {tool_name}. ' +
+  'The image must convey power, efficiency, and reliability.\n\n' +
+  'CRITICAL CONSTRAINTS:\n' +
+  '- Identity Preservation: The tool in the user\'s hand must match the input image exactly (color, branding, form factor, every detail).\n' +
+  '- Safety First: The operator MUST wear appropriate Personal Protective Equipment (PPE) relevant to the tool (e.g., safety glasses, gloves, ear defenders, helmet for forestry).\n' +
+  '- Action: The tool must be in active use, not just held. Create interaction with the environment.\n' +
+  '- Grip: Hands must hold the tool correctly and firmly by the designated handles.';
+
+const RAUTIO_WORKWEAR_BASE_PROMPT =
+  'Commercial industrial workwear photography. A professional tradesperson wearing this specific {item_category}. ' +
+  'The image highlights durability, functionality, and safety standards.\n\n' +
+  'Lighting: High-contrast commercial lighting that emphasizes the texture of rugged materials (canvas, Gore-Tex, reinforced seams).\n' +
+  'Style: Authentic, capable, and heavy-duty. Not a fashion pose.\n\n' +
+  'CRITICAL – preserve every garment detail from the source image:\n' +
+  '- Identity: The garment must match the input image exactly—same cut, fit, length, and proportions.\n' +
+  '- Colors and materials: Preserve exact fabric colors, color blocks, and material appearance (e.g. mesh, canvas, softshell).\n' +
+  '- Branding: Keep all logos, labels, text, and reflective strips in the same positions, sizes, and colors.\n' +
+  '- Construction: Match pocket placement and style, zippers, buttons, seams, stitching, and any visible technical details.\n' +
+  '- Do not add reflective strips, logos, patches, or stripes to any garment that does not show them in the source image. Only the garment(s) visible in the input may have these details; replicate their exact number and placement.';
+
+/** Rautio-kohtaiset ympäristöt: suomenkielinen label UI:hin, setting englanniksi promptiin */
+const RAUTIO_ENVIRONMENTS: DropdownOption[] = [
+  {
+    id: 'yard-winter',
+    label: 'Suomalainen piha talvella',
+    setting:
+      'The setting is a Finnish yard in winter: snow on the ground, cold season. Natural winter daylight, crisp atmosphere. The environment feels authentic and Nordic.',
+  },
+  {
+    id: 'yard-summer',
+    label: 'Suomalainen piha kesällä',
+    setting:
+      'The setting is a Finnish yard in summer: green lawn, typical Nordic summer. Natural daylight, warm and bright. The environment feels authentic and Nordic.',
+  },
+  {
+    id: 'renovation-indoor',
+    label: 'Remontoitava talo sisällä',
+    setting:
+      'The setting is the interior of a house under renovation: unfinished walls, construction context, tools or materials visible. Interior lighting, authentic renovation site atmosphere.',
+  },
+];
+
+/** Rautio: 35-vuotias malli, Nainen/Mies ennallaan */
+const RAUTIO_MODEL_GENDERS: DropdownOption[] = [
+  {
+    id: 'female',
+    label: 'Nainen',
+    description:
+      'female, approx 35 years old, scandinavian ethnicity, blonde hair, natural makeup',
+  },
+  {
+    id: 'male',
+    label: 'Mies',
+    description:
+      'male, approx 35 years old, scandinavian ethnicity, short hair, clean-shaven',
+  },
+];
+
+/** Rautio: vain Gemini (GPT Image 1.5 Edit pois käytöstä) */
+const RAUTIO_MODELS: DropdownOption[] = [
+  { id: 'gemini-25-flash-image/edit', label: 'Gemini 2.5 Flash Edit' },
+];
+
 export default function ClientPage() {
   const params = useParams();
   const clientSlug = params.slug as string;
@@ -47,6 +169,26 @@ export default function ClientPage() {
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [result, setResult] = useState<{ original: string, generated: string } | null>(null);
 
+  // Rautio-kohtainen valinta (vain kun clientSlug === 'rautio')
+  const [rautioItemId, setRautioItemId] = useState<string>(RAUTIO_ITEMS[0]?.id ?? '');
+
+  // Pidä rautioItemId synkassa valitun kategorian kanssa (esim. vanha id)
+  useEffect(() => {
+    if (clientSlug !== 'rautio') return;
+    const current = RAUTIO_ITEMS.find((i) => i.id === rautioItemId);
+    const category = current?.category ?? 'tool';
+    const inCategory = RAUTIO_ITEMS.some(
+      (i) => i.category === category && i.id === rautioItemId
+    );
+    if (!inCategory) {
+      const first = RAUTIO_ITEMS.find((i) => i.category === category);
+      if (first) {
+        setRautioItemId(first.id);
+        setGarmentType(first.id);
+      }
+    }
+  }, [clientSlug, rautioItemId]);
+
   // Load client configuration on mount
   useEffect(() => {
     async function loadConfig() {
@@ -62,10 +204,16 @@ export default function ClientPage() {
       setClientConfig(config);
 
       // Load dynamic dropdown options
-      const envs = getEnvironments(config);
-      const garments = getGarmentTypes(config);
-      const genders = getModelGenders(config);
-      const aiModels = getModels(config);
+      const envs =
+        clientSlug === 'rautio' ? RAUTIO_ENVIRONMENTS : getEnvironments(config);
+      const garments =
+        clientSlug === 'rautio'
+          ? (RAUTIO_ITEMS as unknown as DropdownOption[])
+          : getGarmentTypes(config);
+      const genders =
+        clientSlug === 'rautio' ? RAUTIO_MODEL_GENDERS : getModelGenders(config);
+      const aiModels =
+        clientSlug === 'rautio' ? RAUTIO_MODELS : getModels(config);
 
       setEnvironments(envs);
       setGarmentTypes(garments);
@@ -118,28 +266,55 @@ export default function ClientPage() {
     const selectedEnvironment = environments.find(e => e.id === environment);
     const selectedGarment = garmentTypes.find(g => g.id === garmentType);
     const selectedGender = modelGenders.find(mg => mg.id === modelGender);
-    
-    // Use client's base prompt
-    const basePrompt = getBasePrompt(clientConfig);
-    const garmentDescription = selectedGarment?.label || 'garment';
-    const modelDescription = selectedGender?.description || 'professional model';
-    
-    const fullBasePrompt = basePrompt
-      .replace(/this garment/gi, `this ${garmentDescription}`)
-      .replace(/fashion model/gi, modelDescription);
-    
-    const settingPart = selectedEnvironment?.setting 
-      ? `SETTING:\n${selectedEnvironment.setting}` 
-      : '';
-    
-    const importantPart = `IMPORTANT INSTRUCTIONS:
+
+    let fullPrompt: string;
+
+    if (clientSlug === 'rautio') {
+      const rautioItem = RAUTIO_ITEMS.find((item) => item.id === rautioItemId) ?? RAUTIO_ITEMS[0];
+      const isTool = rautioItem.category === 'tool';
+
+      const basePrompt = isTool
+        ? RAUTIO_TOOL_BASE_PROMPT.replace(
+            '{tool_name}',
+            rautioItem.promptLabel ?? rautioItem.label
+          )
+        : RAUTIO_WORKWEAR_BASE_PROMPT.replace(
+            '{item_category}',
+            rautioItem.promptLabel ?? rautioItem.label
+          );
+
+      const modelPart = selectedGender?.description
+        ? `MODEL:\n${selectedGender.description}`
+        : '';
+
+      const settingPart = selectedEnvironment?.setting
+        ? `SETTING:\n${selectedEnvironment.setting}`
+        : '';
+
+      fullPrompt = [basePrompt, modelPart, settingPart].filter(Boolean).join('\n\n');
+    } else {
+      // Use client's base prompt (oletuslogiikka muille asiakkaille)
+      const basePrompt = getBasePrompt(clientConfig);
+      const garmentDescription = selectedGarment?.label || 'garment';
+      const modelDescription = selectedGender?.description || 'professional model';
+      
+      const fullBasePrompt = basePrompt
+        .replace(/this garment/gi, `this ${garmentDescription}`)
+        .replace(/fashion model/gi, modelDescription);
+      
+      const settingPart = selectedEnvironment?.setting 
+        ? `SETTING:\n${selectedEnvironment.setting}` 
+        : '';
+      
+      const importantPart = `IMPORTANT INSTRUCTIONS:
 1. Map the exact garment from the input image onto the model's body with PERFECT anatomical accuracy
 2. Preserve ALL original details exactly as shown in the input
 3. The fabric must drape naturally following the body's curves and gravity
 4. Maintain the exact texture, pattern, and material appearance from the original garment
 ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHints}` : ''}`;
-    
-    const fullPrompt = `${fullBasePrompt}\n\n${settingPart}\n\n${importantPart}`;
+      
+      fullPrompt = `${fullBasePrompt}\n\n${settingPart}\n\n${importantPart}`;
+    }
     
     const formData = new FormData();
     formData.append('image', file);
@@ -289,7 +464,7 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
             {clientConfig.name}
           </h1>
           <p className="text-lg max-w-2xl mx-auto text-white/80">
-            Luo ammattitasoisia vaatekuvia mallin päällä sekunneissa tekoälyn avulla.
+            Luo ammattitasoisia tuotekuvia tekoälyn avulla.
           </p>
           {typeof (clientConfig as { credits_balance?: number }).credits_balance === 'number' && (
             <p className="text-sm font-medium text-white/70">
@@ -307,7 +482,7 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
                 Uusi generointi
               </CardTitle>
               <CardDescription className="text-slate-600 mt-1">
-                Lataa kuva vaatteesta (paita, takki, mekko jne.) tasaisella taustalla
+                Lataa selkeä kuva tuotteesta tasaisella taustalla
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
@@ -368,81 +543,221 @@ ${selectedGarment?.promptHints ? `5. SPECIFIC DETAIL: ${selectedGarment.promptHi
 
               {/* Settings */}
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {garmentTypes.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">Vaatetyyppi</label>
-                      <Select value={garmentType} onValueChange={setGarmentType}>
-                        <SelectTrigger className="w-full h-12">
-                          <SelectValue placeholder="Valitse vaate" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {garmentTypes.map((g) => (
-                            <SelectItem key={g.id} value={g.id}>
-                              {g.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                {clientSlug === 'rautio' ? (
+                  <>
+                    {/* Rautio: Työkalu / työvaate -rakenne */}
+                    {(() => {
+                      const rautioCategory =
+                        (RAUTIO_ITEMS.find((i) => i.id === rautioItemId)?.category ??
+                          'tool') as RautioItemCategory;
+                      const itemsInCategory = RAUTIO_ITEMS.filter(
+                        (item) => item.category === rautioCategory
+                      );
+                      const currentItemInCategory = itemsInCategory.some(
+                        (i) => i.id === rautioItemId
+                      );
+                      const effectiveItemId = currentItemInCategory
+                        ? rautioItemId
+                        : itemsInCategory[0]?.id ?? rautioItemId;
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-semibold text-slate-700">Kategoria</label>
+                            <Select
+                              value={rautioCategory}
+                              onValueChange={(val: RautioItemCategory) => {
+                                const firstInCategory =
+                                  RAUTIO_ITEMS.find((i) => i.category === val) ?? RAUTIO_ITEMS[0];
+                                setGarmentType(firstInCategory.id);
+                                setRautioItemId(firstInCategory.id);
+                              }}
+                            >
+                              <SelectTrigger className="w-full h-12">
+                                <SelectValue placeholder="Valitse kategoria" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="tool">Työkalu</SelectItem>
+                                <SelectItem value="workwear">Työvaate</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
 
-                  {modelGenders.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">Mallin sukupuoli</label>
-                      <Select value={modelGender} onValueChange={setModelGender}>
-                        <SelectTrigger className="w-full h-12">
-                          <SelectValue placeholder="Valitse sukupuoli" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {modelGenders.map((mg) => (
-                            <SelectItem key={mg.id} value={mg.id}>
-                              {mg.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-semibold text-slate-700">
+                              {rautioCategory === 'tool' ? 'Työkalu' : 'Työvaate'}
+                            </label>
+                            <Select
+                              value={effectiveItemId}
+                              onValueChange={(val: string) => {
+                                setRautioItemId(val);
+                                setGarmentType(val);
+                              }}
+                            >
+                              <SelectTrigger className="w-full h-12">
+                                <SelectValue
+                                  placeholder={
+                                    rautioCategory === 'tool'
+                                      ? 'Valitse työkalu'
+                                      : 'Valitse työvaate'
+                                  }
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {itemsInCategory.map((item) => (
+                                  <SelectItem key={item.id} value={item.id}>
+                                    {item.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {environments.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">Ympäristö</label>
-                      <Select value={environment} onValueChange={setEnvironment}>
-                        <SelectTrigger className="w-full h-12">
-                          <SelectValue placeholder="Valitse ympäristö" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {environments.map((e) => (
-                            <SelectItem key={e.id} value={e.id}>
-                              {e.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {environments.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-slate-700">Ympäristö</label>
+                          <Select value={environment} onValueChange={setEnvironment}>
+                            <SelectTrigger className="w-full h-12">
+                              <SelectValue placeholder="Valitse ympäristö" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {environments.map((e) => (
+                                <SelectItem key={e.id} value={e.id}>
+                                  {e.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
-                  {models.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700">AI-malli</label>
-                      <Select value={model} onValueChange={setModel}>
-                        <SelectTrigger className="w-full h-12">
-                          <SelectValue placeholder="Valitse malli" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {models.map((m) => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {modelGenders.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-slate-700">
+                            Mallin sukupuoli
+                          </label>
+                          <Select value={modelGender} onValueChange={setModelGender}>
+                            <SelectTrigger className="w-full h-12">
+                              <SelectValue placeholder="Valitse sukupuoli" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {modelGenders.map((mg) => (
+                                <SelectItem key={mg.id} value={mg.id}>
+                                  {mg.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {models.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-slate-700">AI-malli</label>
+                          <Select value={model} onValueChange={setModel}>
+                            <SelectTrigger className="w-full h-12">
+                              <SelectValue placeholder="Valitse malli" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {models.map((m) => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  {m.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {garmentTypes.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-slate-700">
+                            Vaatetyyppi
+                          </label>
+                          <Select value={garmentType} onValueChange={setGarmentType}>
+                            <SelectTrigger className="w-full h-12">
+                              <SelectValue placeholder="Valitse vaate" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {garmentTypes.map((g) => (
+                                <SelectItem key={g.id} value={g.id}>
+                                  {g.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {modelGenders.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-slate-700">
+                            Mallin sukupuoli
+                          </label>
+                          <Select value={modelGender} onValueChange={setModelGender}>
+                            <SelectTrigger className="w-full h-12">
+                              <SelectValue placeholder="Valitse sukupuoli" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {modelGenders.map((mg) => (
+                                <SelectItem key={mg.id} value={mg.id}>
+                                  {mg.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {environments.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-slate-700">Ympäristö</label>
+                          <Select value={environment} onValueChange={setEnvironment}>
+                            <SelectTrigger className="w-full h-12">
+                              <SelectValue placeholder="Valitse ympäristö" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {environments.map((e) => (
+                                <SelectItem key={e.id} value={e.id}>
+                                  {e.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {models.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-slate-700">AI-malli</label>
+                          <Select value={model} onValueChange={setModel}>
+                            <SelectTrigger className="w-full h-12">
+                              <SelectValue placeholder="Valitse malli" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {models.map((m) => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  {m.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
                 
                 {typeof (clientConfig as { credits_balance?: number }).credits_balance === 'number' && (clientConfig as { credits_balance: number }).credits_balance <= 0 && (
                   <p className="text-amber-600 text-sm font-medium text-center">

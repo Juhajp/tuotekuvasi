@@ -141,7 +141,7 @@ const RAUTIO_MODEL_GENDERS: DropdownOption[] = [
 
 /** Rautio: vain Gemini (GPT Image 1.5 Edit pois käytöstä) */
 const RAUTIO_MODELS: DropdownOption[] = [
-  { id: 'gemini-25-flash-image/edit', label: 'Gemini 2.5 Flash Edit' },
+  { id: 'gemini-25-flash-image/edit', label: '2.5 Flash Edit' },
 ];
 
 export default function ClientPage() {
